@@ -196,3 +196,84 @@ def compute(x, y, z=1):
 
 compute(3, 5, z=2)
 compute.__name__
+
+#Using cache
+import functools
+import time
+
+import functools
+
+def memoize(function):
+    function._cache = {}
+    @functools.wraps(function)
+    def wrapper(*args, **kwargs):
+        key=(args, tuple(kwargs.items()))
+        if key not in function._cache:
+             function._cache[key]=function(*args, **kwargs)
+        return function._cache[key]
+    return wrapper
+
+
+@memoize
+def long_operation(x, y):
+    time.sleep(5)   # Or some other suitable long expression.
+    return x + y
+
+
+def foo(a: int, b: str) -> bool:
+    return b[a] == 'X'
+
+for key in foo.__annotations__:
+    if key == 'return':
+        print("RETURN -->")
+    print(foo.__annotations__[key])
+
+import inspect
+
+def bind_args(function, *args, **kwargs):
+    return inspect.signature(function).bind(*args, **kwargs).arguments
+
+
+import functools
+#import importlib
+#importlib.reload(helper)
+def check_types(severity=1):
+    if severity == 0:
+        return lambda function: function
+
+    def message(msg):
+        if severity == 1:
+            print(msg)
+        else:
+            raise TypeError(msg)
+    def checker(function):
+        expected = function.__annotations__
+
+        assert(all(map(lambda exp: isinstance(exp, type), expected.values())))
+        if not expected:
+            return function
+        @functools.wraps(function)
+        def wrapper(*args, **kwargs):
+            bound_arguments = bind_args(function, *args, **kwargs)
+            for arg, val in bound_arguments.items():
+                if arg not in expected:
+                    continue
+                if not isinstance(val, expected[arg]):
+                    message(f"Bad Argument! Received {arg}={val}, expecting object of type {expected[arg]}")
+            retval = function(*args, **kwargs)
+            if 'return' in expected and not isinstance(retval, expected['return']):
+                message(f"Bad Return Value! Received {retval}, but expected value of type {expected['return']}")
+            return retval
+        return wrapper
+    return checker
+
+@check_types(severity=2)
+def foo(a: int, b: str) -> bool:
+    return b[a] == 'X'
+
+# When used correctly, everything is great!
+foo(3, 'ABCDE')  # => False
+foo(1, 'WXYZ')
+
+# But if the arguments are the wrong type, this decorator function will severely complain!
+foo('WXYZ', 1)
